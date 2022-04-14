@@ -1,0 +1,26 @@
+{
+  "name": "BetterSearch",
+  "description": "A Google Chrome extension!",
+  "version": "0.1",
+  "manifest_version": 3,
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+    "48": "/assets/icons/search.png",
+    "128": "/assets/icons/search.png"
+    }
+  },
+  "content_scripts": [
+    {
+     "matches": [
+       "<all_urls>"
+     ],
+     "js": ["content.js"]
+    }
+  ]
+}
