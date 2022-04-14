@@ -11,6 +11,7 @@ list = list.filter(block => block.split(' ').length >= 2);
 var result_elements = [];
 var index = 0;
 var result_text = [];
+var answer = "";
 
 chrome.storage.local.get(['loaded', 'all', 'index','url'], 
   function(items) {      
@@ -81,11 +82,26 @@ async function fetchSemantic(data) {
         var result = await r.json();
         getElements(result);
         highlightResults(0);
-        return result;
+        return result_text;
+  }
+
+  async function fetchQA(data) {
+    var r = await fetch('http://localhost:5000/api/qa', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+                    },
+            body: JSON.stringify(data)
+        })
+        var result = await r.json();
+        answer = result.answer;
+        getElements(result.evidence);
+        highlightResults(0);
+        return result_text;
   }
 
 function gotMessage(request, sender, sendResponse){
-    console.log(request.request)
     if(request.request === "option1"){
         if(!request.value){
             sendResponse();
@@ -103,18 +119,47 @@ function gotMessage(request, sender, sendResponse){
         index = 0;
 
         let data = {data: list, query: request.value}
-        console.log("start");
         let temp = await fetchSemantic(data);
-        let elements = getElements(temp);
-        console.log("done");
-        console.log(elements);
-        console.log(result_text);
+    
         let ret = {cur_text:result_text[0], total:result_text.length, cur_index:0};
         
         chrome.storage.local.set({
             'all' : result_text,
             'loaded' : true,
             'total' : ret.total,
+            'index' : 0,
+            'text' : result_text[0]}, 
+            function(result) {});
+        sendResponse(ret);
+        })();
+        return true; 
+    }
+    if(request.request === "option2"){
+        if(!request.value){
+            sendResponse();
+            return;
+        }
+        chrome.storage.local.set({
+            'request' : "option2",
+            'value' : request.value,
+            'url' : document.location.href,
+            'loaded' : false}, 
+            function(result) {});
+
+        (async () => {
+        result_elements = [];
+        index = 0;
+
+        let data = {data: list, question: request.value}
+        let temp = await fetchQA(data);
+     
+        let ret = {cur_text:result_text[0], total:result_text.length, cur_index:0};
+        
+        chrome.storage.local.set({
+            'all' : result_text,
+            'loaded' : true,
+            'total' : ret.total,
+            'answer': answer,
             'index' : 0,
             'text' : result_text[0]}, 
             function(result) {});

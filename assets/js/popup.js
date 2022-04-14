@@ -38,6 +38,32 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       chrome.tabs.sendMessage(tabs[0].id, msg, function(result){
+        results = result;
+        let text = document.getElementById('text');
+        text.innerHTML = results.cur_text.substring(0, 30);
+        let amount = document.getElementById('amount');
+        amount.classList.remove('hidden');
+        amount.innerText = (results.cur_index+1)+" of "+results.total+" results";
+      })
+  });
+  }, false);
+
+  var checkButton = document.getElementById('btn-opt2');
+  checkButton.addEventListener('click', function() {
+    chrome.tabs.query({currentWindow: true, active: true}, function(tabs){
+      alert("clicked");
+      let text = document.getElementById('text');
+      text.innerHTML = "Loading";
+      let amount = document.getElementById('amount');
+      amount.classList.add('hidden');
+     
+
+      let msg = {
+        request: "option2",
+        value: document.getElementById('text-opt2').value
+      }
+
+      chrome.tabs.sendMessage(tabs[0].id, msg, function(result){
         alert(JSON.stringify(result));
         results = result;
         let text = document.getElementById('text');
