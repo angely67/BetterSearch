@@ -10,10 +10,11 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       chrome.tabs.sendMessage(tabs[0].id, msg, function(result){
         results = result;
-        let resultBox = document.getElementById('result');
+      alert(result);
+        /*let resultBox = document.getElementById('result');
         resultBox.innerHTML = results[0];
         let amount = document.getElementById('amount');
-        amount.innerHTML = "0 of "+results.length+"results";
+        amount.innerHTML = "0 of "+results.length+"results";*/
       })
   });
   }, false);

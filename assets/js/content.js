@@ -7,6 +7,9 @@ Element.prototype.documentOffsetTop = function () {
 var all = document.querySelectorAll('*')
 var root = all[0]
 var list = root.innerText.split(/\r?\n/);
+list = list.filter(block => block.split(' ').length >= 3);
+console.log("Atlantic Ocean".split(' ').length);
+console.log(list);
 var result_elements = [];
 var index = 0;
 
@@ -45,10 +48,30 @@ function prevElement(){
     scrollToElement(result_elements[index]);
 }
 
+async function processMessage(msg) {
+    var r = await fetch('http://localhost:5000/api/semantic', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+                    },
+            body: JSON.stringify(data)
+        })
+        var result = await r.json();
+            //console.log("done");
+            //console.log(result);
+            //results = [list[30], list[50], list[105]];
+        highlightResults(result);
+            //sendResponse(result);
+  }
+
 function gotMessage(request, sender, sendResponse){
     console.log(request.request)
     if(request.request === "option1"){
-
+        if(!request.value){
+            sendResponse();
+            return;
+        }
         /*var para = document.getElementsByTagName('p')
         for (elt of para){
             elt.style['background-color'] = '#FF00FF'
@@ -61,9 +84,24 @@ function gotMessage(request, sender, sendResponse){
         //using the request.value and list (data) fetch from backend
         result_elements = [];
         index = 0;
-        results = [list[30], list[50], list[105]];
-        highlightResults(results);
-        sendResponse(results);
+
+        let data = {data: list, query: request.value}
+        console.log("start");
+        /*fetch('http://localhost:5000/api/semantic', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+                    },
+            body: JSON.stringify(data)
+        }).then(r => r.json())
+        .then(result => {
+            //console.log("done");
+            //console.log(result);
+            //results = [list[30], list[50], list[105]];
+            highlightResults(result);
+            //sendResponse(result);
+        });*/
     }
     if(request.request === "next"){
         nextElement()
