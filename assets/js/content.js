@@ -10,10 +10,12 @@ var list = root.innerText.split(/\r?\n/);
 list = list.filter(block => block.split(' ').length >= 2);
 var result_elements = [];
 var index = 0;
+var result_text = [];
 
 chrome.storage.local.get(['loaded', 'all', 'index','url'], 
   function(items) {      
         if(items.loaded && document.location.href===items.url){
+            result_text = items.all;
             getElements(items.all);
             highlightResults(items.index);
         }
@@ -27,9 +29,11 @@ function scrollToElement(element) {
 
 function getElements(results){
     result_elements = [];
+    result_text = [];
     results.forEach(r => {
         document.querySelectorAll('*').forEach(e => {
-            if(e.innerText === r){
+            if(e.innerText === r && !result_text.includes(r)){
+                result_text.push(r);
                 result_elements.push(e);
             }
         });
@@ -52,14 +56,16 @@ function nextElement(){
     if(index >= result_elements.length){
         index = 0
     }
+    highlightResults(index);
     scrollToElement(result_elements[index]);
 }
 
 function prevElement(){
     index--;
     if(index < 0){
-        index = result_elements.length-1;
+        index = result_text.length-1;
     }
+    highlightResults(index);
     scrollToElement(result_elements[index]);
 }
 
@@ -73,11 +79,9 @@ async function fetchSemantic(data) {
             body: JSON.stringify(data)
         })
         var result = await r.json();
-            //results = [list[30], list[50], list[105]];
         getElements(result);
         highlightResults(0);
         return result;
-            //sendResponse(result);
   }
 
 function gotMessage(request, sender, sendResponse){
@@ -100,25 +104,35 @@ function gotMessage(request, sender, sendResponse){
 
         let data = {data: list, query: request.value}
         console.log("start");
-        const r = await fetchSemantic(data);
-        let ret = {cur_text:r[0], total:r.length, cur_index:0};
-        console.log(ret);
+        let temp = await fetchSemantic(data);
+        let elements = getElements(temp);
+        console.log("done");
+        console.log(elements);
+        console.log(result_text);
+        let ret = {cur_text:result_text[0], total:result_text.length, cur_index:0};
+        
         chrome.storage.local.set({
-            'all' : r,
+            'all' : result_text,
             'loaded' : true,
             'total' : ret.total,
             'index' : 0,
-            'text' : r[0]}, 
+            'text' : result_text[0]}, 
             function(result) {});
         sendResponse(ret);
         })();
         return true; 
     }
     if(request.request === "next"){
-        nextElement()
+        nextElement();
+        chrome.storage.local.set({'index' : index, 'text' : result_text[index]},function(result) {});
+        let ret = {cur_text:result_text[index], total:result_text.length, cur_index:index};
+        sendResponse(ret);
     }
     if(request.request === "prev"){
-        prevElement()
+        prevElement();
+        chrome.storage.local.set({'index' : index, 'text' : result_text[index]},function(result) {});
+        let ret = {cur_text:result_text[index], total:result_text.length, cur_index:index};
+        sendResponse(ret);
     }
 
 }
