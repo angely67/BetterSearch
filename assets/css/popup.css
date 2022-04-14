@@ -1,3 +1,15 @@
 .hidden{
     display: none;
 }
+
+html{
+    width: 300px;
+}
+
+.wrapper{
+    padding: 10px;
+}
+
+input, button, label{
+    margin: 2px;
+}
