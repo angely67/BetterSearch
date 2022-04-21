@@ -1,24 +1,57 @@
+const API_URL = "http://localhost:5000"
+
 chrome.runtime.onMessage.addListener(gotMessage);
 
 Element.prototype.documentOffsetTop = function () {
     return this.offsetTop + ( this.offsetParent ? this.offsetParent.documentOffsetTop() : 0 );
   };
 
-var all = document.querySelectorAll('*')
-var root = all[0]
-var list = root.innerText.split(/\r?\n/);
-list = list.filter(block => block.split(' ').length >= 2);
-var result_elements = [];
-var index = 0;
-var result_text = [];
-var answer = "";
+//scraping from html
+var ALL_ELE = document.querySelectorAll('*')
+var temp = ALL_ELE[0].innerText.split(/\r?\n/);
+temp = temp.filter(block => block.split(' ').length >= 2); //only take lines with more than 1 words
+var LIST_TEXT = [];
+var LIST_ELE = [];
+//Find elements that perfectly holds the words in temp or contains the line all text (not in some child)
+temp.forEach(r => {
+    for (let i = ALL_ELE.length - 1; i >= 0; i--) {
+        let e = ALL_ELE[i];
+        if((e.innerText === r || e.innerHTML.includes(r)) && !LIST_TEXT.includes(r)){
+            LIST_TEXT.push(r);
+            if(e.innerText === r){
+                LIST_ELE.push(e);
+            }
+            else{
+                e.innerHTML = e.innerHTML.replace(r, "<span>"+r+"</span>");
+                e.childNodes.forEach(c => {
+                    if(c.innerText === r){
+                        LIST_ELE.push(c);
+                    }
+                })
+            }
+        }
+    }
+})
 
-chrome.storage.local.get(['loaded', 'all', 'index','url'], 
+//global variables for results
+var RESULT_TEXT = [];
+var RESULT_ELEMENTS = [];
+var INDEX = 0;
+
+//request values
+var REQUEST, VALUE;
+var LOADED = false;
+
+//get the info from storage and use if the url matches
+chrome.storage.local.get(['loaded', 'all_text', 'cur_index','url', 'request'], 
   function(items) {      
         if(items.loaded && document.location.href===items.url){
-            result_text = items.all;
-            getElements(items.all);
-            highlightResults(items.index);
+            REQUEST = items.request;
+            RESULT_TEXT = items.all_text;
+            INDEX = items.cur_index;
+            LOADED = items.loaded;
+            getElementsAndText(RESULT_TEXT);
+            highlightResults(INDEX);
         }
   });
 
@@ -28,50 +61,60 @@ function scrollToElement(element) {
     window.scrollTo( 0, Math.max(top, window.pageYOffset - (window.innerHeight/2))) ;
 }
 
-function getElements(results){
-    result_elements = [];
-    result_text = [];
+//with the results given, find the matching html elements and text, store in global
+function getElementsAndText(results){
+    RESULT_ELEMENTS = [];
+    RESULT_TEXT = [];
     results.forEach(r => {
-        document.querySelectorAll('*').forEach(e => {
-            if(e.innerText === r && !result_text.includes(r)){
-                result_text.push(r);
-                result_elements.push(e);
+        for (let i = LIST_ELE.length - 1; i >= 0; i--) {
+            let e = LIST_ELE[i];
+            if(e.innerText === r && !RESULT_TEXT.includes(r)){
+                RESULT_TEXT.push(r);
+                RESULT_ELEMENTS.push(e);
             }
-        });
+        }
     })
-    return result_elements;
 }
+
+//highlight all elements in result_elements and focus on the given index
 function highlightResults(index){
-    result_elements.forEach(e => {
+    RESULT_ELEMENTS.forEach(e => {
             e.style.background = "yellow";
     });
-    focusElement(result_elements[index]);
-    scrollToElement(result_elements[index]);
+    focusElement(RESULT_ELEMENTS[index]);
+}
+
+//unhighlight all the results from the result_elements
+function unhighlightResults(){
+    RESULT_ELEMENTS.forEach(e => {
+            e.style.background = "none";
+    });
 }
 
 function focusElement(element){
-    element.style.background = "orange"
+    element.style.background = "orange";
+    scrollToElement(element);
 }
+
 function nextElement(){
-    index++;
-    if(index >= result_elements.length){
-        index = 0
+    INDEX++;
+    if(INDEX >= RESULT_TEXT.length){
+        INDEX = 0
     }
-    highlightResults(index);
-    scrollToElement(result_elements[index]);
+    highlightResults(INDEX);
 }
 
 function prevElement(){
-    index--;
-    if(index < 0){
-        index = result_text.length-1;
+    INDEX--;
+    if(INDEX < 0){
+        INDEX = RESULT_TEXT.length-1;
     }
-    highlightResults(index);
-    scrollToElement(result_elements[index]);
+    highlightResults(INDEX);
 }
 
 async function fetchSemantic(data) {
-    var r = await fetch('http://localhost:5000/api/semantic', {
+    unhighlightResults();
+    var r = await fetch(API_URL+'/api/semantic', {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -80,13 +123,15 @@ async function fetchSemantic(data) {
             body: JSON.stringify(data)
         })
         var result = await r.json();
-        getElements(result);
+        INDEX = 0;
+        LOADED = true;
+        getElementsAndText(result);
         highlightResults(0);
-        return result_text;
   }
 
   async function fetchQA(data) {
-    var r = await fetch('http://localhost:5000/api/qa', {
+    unhighlightResults();
+    var r = await fetch(API_URL+'/api/qa', {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -95,89 +140,82 @@ async function fetchSemantic(data) {
             body: JSON.stringify(data)
         })
         var result = await r.json();
-        answer = result.answer;
-        getElements(result.evidence);
+        INDEX = 0;
+        LOADED = true;
+        getElementsAndText(result.evidence);
         highlightResults(0);
-        return result_text;
   }
 
-function gotMessage(request, sender, sendResponse){
-    if(request.request === "option1"){
-        if(!request.value){
-            sendResponse();
-            return;
-        }
-        chrome.storage.local.set({
-            'request' : "option1",
-            'value' : request.value,
-            'url' : document.location.href,
-            'loaded' : false}, 
-            function(result) {});
-
-        (async () => {
-        result_elements = [];
-        index = 0;
-
-        let data = {data: list, query: request.value}
-        let temp = await fetchSemantic(data);
-    
-        let ret = {cur_text:result_text[0], total:result_text.length, cur_index:0};
-        
-        chrome.storage.local.set({
-            'all' : result_text,
-            'loaded' : true,
-            'total' : ret.total,
-            'index' : 0,
-            'text' : result_text[0]}, 
-            function(result) {});
-        sendResponse(ret);
-        })();
-        return true; 
+function setStorage(data){
+    let setData = {};
+    if(data.request){
+        setData.request = {request: data.request, value: data.value}
+        setData.url = document.location.href
+        setData.loaded = data.loaded
     }
-    if(request.request === "option2"){
-        if(!request.value){
-            sendResponse();
-            return;
-        }
-        chrome.storage.local.set({
-            'request' : "option2",
-            'value' : request.value,
-            'url' : document.location.href,
-            'loaded' : false}, 
-            function(result) {});
+    if(data.cur_index){
+        setData.cur_index = data.cur_index
+    }
+    if(data.text){
+        setData.text = data.text
+    }
+    if(data.all_text){
+        setData.all_text = data.all_text
+        setData.loaded = data.loaded
+        setData.total = data.total
+    }
+    chrome.storage.local.set(setData, function(result) {});
+}  
 
-        (async () => {
-        result_elements = [];
-        index = 0;
-
-        let data = {data: list, question: request.value}
-        let temp = await fetchQA(data);
-     
-        let ret = {cur_text:result_text[0], total:result_text.length, cur_index:0};
-        
-        chrome.storage.local.set({
-            'all' : result_text,
-            'loaded' : true,
-            'total' : ret.total,
-            'answer': answer,
-            'index' : 0,
-            'text' : result_text[0]}, 
-            function(result) {});
-        sendResponse(ret);
-        })();
-        return true; 
+function gotMessage(request, sender, sendResponse){
+    if(request.request === "getInfo"){
+        let data = request? {request: REQUEST.request, loaded: LOADED, 
+            total: RESULT_TEXT.length, index: INDEX, 
+            value: REQUEST.value, text: RESULT_TEXT[INDEX]} : null;
+        sendResponse(data);
+        return;
     }
     if(request.request === "next"){
         nextElement();
-        chrome.storage.local.set({'index' : index, 'text' : result_text[index]},function(result) {});
-        let ret = {cur_text:result_text[index], total:result_text.length, cur_index:index};
+        setStorage({cur_index : INDEX, 'text' : RESULT_TEXT[INDEX]});
+        let ret = {cur_text:RESULT_TEXT[INDEX], total:RESULT_TEXT.length, cur_index:INDEX};
         sendResponse(ret);
     }
     if(request.request === "prev"){
         prevElement();
-        chrome.storage.local.set({'index' : index, 'text' : result_text[index]},function(result) {});
-        let ret = {cur_text:result_text[index], total:result_text.length, cur_index:index};
+        setStorage({cur_index : INDEX, 'text' : RESULT_TEXT[INDEX]});
+        let ret = {cur_text:RESULT_TEXT[INDEX], total:RESULT_TEXT.length, cur_index:INDEX};
         sendResponse(ret);
+    }
+    if(request.request === "option1" || request.request === "option2"){
+        if(!request.value){
+            sendResponse();
+            return;
+        }
+        REQUEST = {request: request.request, value: request.value};
+        LOADED = false;
+
+        setStorage({request : request.request, value:request.value, loaded: false});
+
+        (async () => {
+            if(request.request === "option1"){
+                let data = {data: LIST_TEXT, query: request.value}
+                 await fetchSemantic(data);
+            }else{
+                let data = {data: LIST_TEXT, question: request.value}
+                await fetchQA(data);
+            }
+    
+        let ret = {cur_text:RESULT_TEXT[0], total:RESULT_TEXT.length, cur_index:0};
+            
+        setStorage({all_text : RESULT_TEXT, 
+            loaded: true,
+            total: ret.total,
+            cur_index: 0,
+            text: RESULT_TEXT[0]});
+        sendResponse(ret);
+        })();
+        return true; 
     }
 
 }
