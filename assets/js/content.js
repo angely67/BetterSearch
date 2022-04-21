@@ -36,6 +36,7 @@ temp.forEach(r => {
 //global variables for results
 var RESULT_TEXT = [];
 var RESULT_ELEMENTS = [];
+var ANSWER;
 var INDEX = 0;
 
 //request values
@@ -43,13 +44,15 @@ var REQUEST, VALUE;
 var LOADED = false;
 
 //get the info from storage and use if the url matches
-chrome.storage.local.get(['loaded', 'all_text', 'cur_index','url', 'request'], 
+chrome.storage.local.get(['loaded', 'all_text', 'cur_index','url', 'request', 'answer'], 
   function(items) {      
         if(items.loaded && document.location.href===items.url){
             REQUEST = items.request;
             RESULT_TEXT = items.all_text;
             INDEX = items.cur_index;
             LOADED = items.loaded;
+            ANSWER = items.answer;
+            console.log(ANSWER);
             getElementsAndText(RESULT_TEXT);
             highlightResults(INDEX);
         }
@@ -140,6 +143,7 @@ async function fetchSemantic(data) {
             body: JSON.stringify(data)
         })
         var result = await r.json();
+        ANSWER = result.answer[0][1];
         INDEX = 0;
         LOADED = true;
         getElementsAndText(result.evidence);
@@ -152,6 +156,9 @@ function setStorage(data){
         setData.request = {request: data.request, value: data.value}
         setData.url = document.location.href
         setData.loaded = data.loaded
+    }
+    if(data.answer){
+        setData.answer = data.answer
     }
     if(data.cur_index){
         setData.cur_index = data.cur_index
@@ -169,7 +176,7 @@ function setStorage(data){
 
 function gotMessage(request, sender, sendResponse){
     if(request.request === "getInfo"){
-        let data = request? {request: REQUEST.request, loaded: LOADED, 
+        let data = request? {request: REQUEST.request, answer : ANSWER, loaded: LOADED, 
             total: RESULT_TEXT.length, index: INDEX, 
             value: REQUEST.value, text: RESULT_TEXT[INDEX]} : null;
         sendResponse(data);
@@ -178,13 +185,13 @@ function gotMessage(request, sender, sendResponse){
     if(request.request === "next"){
         nextElement();
         setStorage({cur_index : INDEX, 'text' : RESULT_TEXT[INDEX]});
-        let ret = {cur_text:RESULT_TEXT[INDEX], total:RESULT_TEXT.length, cur_index:INDEX};
+        let ret = {cur_text:RESULT_TEXT[INDEX], total:RESULT_TEXT.length, cur_index:INDEX, answer: ANSWER};
         sendResponse(ret);
     }
     if(request.request === "prev"){
         prevElement();
         setStorage({cur_index : INDEX, 'text' : RESULT_TEXT[INDEX]});
-        let ret = {cur_text:RESULT_TEXT[INDEX], total:RESULT_TEXT.length, cur_index:INDEX};
+        let ret = {cur_text:RESULT_TEXT[INDEX], total:RESULT_TEXT.length, cur_index:INDEX, answer: ANSWER};
         sendResponse(ret);
     }
     if(request.request === "option1" || request.request === "option2"){
@@ -194,6 +201,7 @@ function gotMessage(request, sender, sendResponse){
         }
         REQUEST = {request: request.request, value: request.value};
         LOADED = false;
+        ANSWER = null;
 
         setStorage({request : request.request, value:request.value, loaded: false});
 
@@ -204,9 +212,10 @@ function gotMessage(request, sender, sendResponse){
             }else{
                 let data = {data: LIST_TEXT, question: request.value}
                 await fetchQA(data);
+                setStorage({answer : ANSWER});
             }
     
-        let ret = {cur_text:RESULT_TEXT[0], total:RESULT_TEXT.length, cur_index:0};
+        let ret = {cur_text:RESULT_TEXT[0], total:RESULT_TEXT.length, cur_index:0, answer: ANSWER};
             
         setStorage({all_text : RESULT_TEXT, 
             loaded: true,

@@ -1,6 +1,6 @@
 
 var results;
-var TEXT, AMOUNT, PREV, NEXT;
+var TEXT, AMOUNT, PREV, NEXT, ANSWERBOX, ANSWER;
 
 function loading(){
   TEXT.classList.remove("result-box");
@@ -8,16 +8,26 @@ function loading(){
   AMOUNT.classList.add('hidden');
   PREV.classList.add('hidden');
   NEXT.classList.add('hidden');
+  ANSWERBOX.classList.add("hidden")
 }
 
-function displayResults(cur_text, cur_index, total){
+function displayResults(cur_text, cur_index, total, answer){
   TEXT.classList.add("result-box");
-  if(cur_text > 100){
-    TEXT.innerHTML = cur_text.substring(0, 50)+"...";
+  if(answer){
+    ANSWERBOX.classList.remove("hidden")
+    ANSWER.innerText = answer;
   }
   else{
-    TEXT.innerHTML = cur_text;
+    ANSWERBOX.classList.add("hidden")
   }
+
+  if(cur_text > 100){
+    TEXT.innerHTML = "<strong>Results:</strong><br/>"+cur_text.substring(0, 50)+"...";
+  }
+  else{
+    TEXT.innerHTML = "<strong>Results:</strong><br/>"+cur_text;
+  }
+
     AMOUNT.classList.remove('hidden');
     AMOUNT.innerText = (cur_index+1)+" of "+total+" results";
     PREV.classList.remove('hidden');
@@ -29,10 +39,11 @@ document.addEventListener('DOMContentLoaded', function() {
   AMOUNT = document.getElementById('amount');
   PREV = document.getElementById('prev');
   NEXT = document.getElementById('next');
+  ANSWER = document.getElementById('answer');
+  ANSWERBOX = document.getElementById('answer-box');
 
   chrome.tabs.query({currentWindow: true, active: true}, function(tabs){
     chrome.tabs.sendMessage(tabs[0].id, {request: 'getInfo'}, function(items){
-      console.log("done")
       if(items){
         if(items.request === "option1"){
           let input = document.getElementById('text-opt1');
@@ -44,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
       if(items.loaded){
-        displayResults(items.text, items.index, items.total);
+        displayResults(items.text, items.index, items.total, items.answer);
       }
       else if(items.request){
         loading();
@@ -55,6 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
         AMOUNT.classList.add('hidden');
         PREV.classList.add('hidden');
         NEXT.classList.add('hidden');
+        ANSWERBOX.classList.add("hidden")
       }
       }
     })
@@ -96,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.tabs.sendMessage(tabs[0].id, msg, function(result){
         if(result){
           results = result;
-          displayResults(results.cur_text, results.cur_index, results.total)
+          displayResults(results.cur_text, results.cur_index, results.total, results.answer)
         }
         else{ 
           TEXT.innerHTML = "Something went wrong :(";
@@ -115,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.tabs.sendMessage(tabs[0].id, msg, function(result){
         if(result){
           results = result;
-          displayResults(results.cur_text, results.cur_index, results.total)
+          displayResults(results.cur_text, results.cur_index, results.total, results.answer)
         }
         else{ 
           TEXT.innerHTML = "Something went wrong :(";
@@ -134,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.tabs.sendMessage(tabs[0].id, msg, function(result){
         if(result){
           results = result;
-          displayResults(results.cur_text, results.cur_index, results.total)
+          displayResults(results.cur_text, results.cur_index, results.total, results.answer)
         }
         else{ 
           TEXT.innerHTML = "Something went wrong :(";
