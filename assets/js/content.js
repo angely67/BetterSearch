@@ -22,7 +22,8 @@ temp.forEach(r => {
                 LIST_ELE.push(e);
             }
             else{
-                e.innerHTML = e.innerHTML.replace(r, "<span>"+r+"</span>");
+                //creating another element so highlighting is easier.
+                e.innerHTML = e.innerHTML.replace(r, "<span>"+r+"</span>"); 
                 e.childNodes.forEach(c => {
                     if(c.innerText === r){
                         LIST_ELE.push(c);
@@ -52,7 +53,6 @@ chrome.storage.local.get(['loaded', 'all_text', 'cur_index','url', 'request', 'a
             INDEX = items.cur_index;
             LOADED = items.loaded;
             ANSWER = items.answer;
-            console.log(ANSWER);
             getElementsAndText(RESULT_TEXT);
             highlightResults(INDEX);
         }
@@ -99,6 +99,7 @@ function focusElement(element){
     scrollToElement(element);
 }
 
+//functions for arrow buttons
 function nextElement(){
     INDEX++;
     if(INDEX >= RESULT_TEXT.length){
@@ -115,6 +116,7 @@ function prevElement(){
     highlightResults(INDEX);
 }
 
+//fetching to backend for semantic search
 async function fetchSemantic(data) {
     unhighlightResults();
     var r = await fetch(API_URL+'/api/semantic', {
@@ -132,6 +134,7 @@ async function fetchSemantic(data) {
         highlightResults(0);
   }
 
+  //fetching to backend for txt Q&a
   async function fetchQA(data) {
     unhighlightResults();
     var r = await fetch(API_URL+'/api/qa', {
@@ -150,6 +153,7 @@ async function fetchSemantic(data) {
         highlightResults(0);
   }
 
+//setting the data in local storage
 function setStorage(data){
     let setData = {};
     if(data.request){
@@ -174,6 +178,7 @@ function setStorage(data){
     chrome.storage.local.set(setData, function(result) {});
 }  
 
+//handler for getting a message/request
 function gotMessage(request, sender, sendResponse){
     if(request.request === "getInfo"){
         let data = request? {request: REQUEST.request, answer : ANSWER, loaded: LOADED, 
